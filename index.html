@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>FrotaControl • Gestão de Combustível e Despesas</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">FC</div>
+        <div>
+          <h1>FrotaControl <span class="meta" id="appVersion">v1.5.0</span></h1>
+          <div class="meta" id="licenseBadge">Licença: Demo</div>
+        </div>
+      </div>
+
+      <nav class="nav" id="nav">
+        <button data-view="refuels" class="active">⛽ Abastecimentos</button>
+        <button data-view="expenses">🧾 Despesas Extras</button>
+        <button data-view="dashboard">📊 Dashboard</button>
+        <button data-view="report-financial">🧾 Relatório Financeiro</button>
+        <button data-view="report-general">📄 Relatório Geral</button>
+        <button data-view="report-vehicle">🚚 Relatório por Veículo</button>
+        <button data-view="report-driver">👤 Relatório por Condutor</button>
+        <button data-view="report-fuel">🛢️ Relatório por Combustível</button>
+        <button data-view="report-station">⛽ Relatório por Posto</button>
+        <button data-view="import-export">⬇️⬆️ Importar / Exportar</button>
+        <button data-view="registers">📚 Cadastros</button>
+        <button data-view="license-about">🔑 Licença / Sobre</button>
+        <div class="pill" id="offlinePill">Online</div>
+      </nav>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div style="flex:1">
+          <div class="meta" id="topHint">Pronto para uso offline • Sem backend</div>
+        </div>
+        <button class="btn secondary" id="btnInstall" title="Instalar como app" style="display:none">Instalar</button>
+        <button class="btn secondary" id="btnPrint" title="Imprimir relatório da tela atual">Imprimir</button>
+      </div>
+
+      <div class="container">
+        <div id="globalNotice" class="notice danger hidden"></div>
+
+        <!-- VIEWS -->
+        <section data-view="refuels">
+          <div class="title">
+            <h2>Abastecimentos</h2>
+            <span class="badge">Entrada no padrão Excel</span>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <div class="notice" id="refuelCalcNotice">
+              R$/Litro, KM rodados e Consumo (km/L) são calculados automaticamente ao salvar.
+            </div>
+            <form class="form" id="refuelForm" autocomplete="off">
+              <input type="hidden" id="refuelId" />
+              <div class="field"><label>Data</label><input id="rfDate" type="date" required /></div>
+              <div class="field"><label>Horário</label><input id="rfTime" type="time" required /></div>
+              <div class="field"><label>Placa do veículo</label>
+                <select id="rfPlate" required></select>
+              </div>
+              <div class="field"><label>Condutor</label><select id="rfDriver" required></select></div>
+
+              <div class="field span-6"><label>Posto</label><select id="rfStation" required></select></div>
+              <div class="field span-6"><label>Combustível</label><select id="rfFuel" required></select></div>
+
+              <div class="field"><label>Litros</label><input id="rfLiters" type="number" step="0.001" min="0" required /></div>
+              <div class="field"><label>Valor total (R$)</label><input id="rfTotal" type="number" step="0.01" min="0" required /></div>
+              <div class="field"><label>Pagamento</label>
+                <select id="rfPayMethod">
+                  <option value="Normal">Normal</option>
+                  <option value="Crédito">Crédito no posto</option>
+                </select>
+              </div>
+              <div class="field"><label>Crédito no posto (auto)</label><input id="rfStationCredit" type="text" disabled /></div>
+              <div class="field"><label>R$/Litro (auto)</label><input id="rfPricePerLiter" type="text" disabled /></div>
+              <div class="field"><label>Hodômetro</label><input id="rfOdo" type="number" step="1" min="0" required /></div>
+
+              <div class="field"><label>Completou o tanque?</label>
+                <select id="rfFull">
+                  <option value="Não">Não</option>
+                  <option value="Sim">Sim</option>
+                </select>
+              </div>
+              <div class="field"><label>Km rodados (auto)</label><input id="rfKm" type="text" disabled /></div>
+              <div class="field"><label>Consumo km/L (auto)</label><input id="rfCons" type="text" disabled /></div>
+
+              <div class="field span-12"><label>Observações</label><textarea id="rfNotes" placeholder="Opcional"></textarea></div>
+
+              <div class="field span-12">
+                <div class="row">
+                  <button class="btn" id="btnRefuelSave" type="submit">Salvar</button>
+                  <button class="btn secondary" id="btnRefuelClear" type="button">Limpar</button>
+                  <button class="btn secondary" id="btnRefuelDuplicate" type="button">Duplicar</button>
+                </div>
+                <div id="refuelError" class="notice danger hidden" style="margin-top:10px"></div>
+              </div>
+            </form>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <div class="row" style="justify-content:space-between">
+              <h3 style="margin:0">Registros</h3>
+              <small id="refuelCount"></small>
+            </div>
+            <div style="overflow:auto; margin-top:8px">
+              <table class="table" id="refuelTable"></table>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="expenses" class="hidden">
+          <div class="title">
+            <h2>Despesas Extras</h2>
+            <span class="badge">Manutenção, documentação, multas, seguro e outros</span>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <form class="form" id="expenseForm" autocomplete="off">
+              <input type="hidden" id="expenseId" />
+              <div class="field"><label>Data</label><input id="exDate" type="date" required /></div>
+              <div class="field"><label>Tipo</label>
+                <select id="exType" required>
+                  <option>Manutenção</option>
+                  <option>Documentação</option>
+                  <option>Multas</option>
+                  <option>Seguro</option>
+                  <option>Outros</option>
+                </select>
+              </div>
+              <div class="field"><label>Veículo (opcional)</label><select id="exPlate"></select></div>
+              <div class="field"><label>Condutor (opcional)</label><select id="exDriver"></select></div>
+              <div class="field"><label>Valor (R$)</label><input id="exValue" type="number" step="0.01" min="0" required /></div>
+              <div class="field span-12"><label>Descrição</label><input id="exDesc" type="text" placeholder="Ex.: Troca de óleo, IPVA, Seguro anual..." /></div>
+
+              <div class="field span-12">
+                <div class="row">
+                  <button class="btn" type="submit">Salvar</button>
+                  <button class="btn secondary" type="button" id="btnExpenseClear">Limpar</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <div class="row" style="justify-content:space-between">
+              <h3 style="margin:0">Registros</h3>
+              <small id="expenseCount"></small>
+            </div>
+            <div style="overflow:auto; margin-top:8px">
+              <table class="table" id="expenseTable"></table>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="dashboard" class="hidden">
+          <div class="title">
+            <h2>Dashboard</h2>
+            <span class="badge">Foco em decisão</span>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <div class="form" id="dashFilters">
+              <div class="field"><label>Ano</label><select id="fYear"></select></div>
+              <div class="field"><label>Período</label>
+                <select id="fPeriod">
+                  <option value="all">Todo o ano</option>
+                  <option value="1">Jan–Mar</option>
+                  <option value="2">Abr–Jun</option>
+                  <option value="3">Jul–Set</option>
+                  <option value="4">Out–Dez</option>
+                </select>
+              </div>
+              <div class="field"><label>Veículo</label><select id="fPlate"></select></div>
+              <div class="field"><label>Condutor</label><select id="fDriver"></select></div>
+              <div class="field"><label>Combustível</label><select id="fFuel"></select></div>
+              <div class="field"><label>&nbsp;</label><button class="btn secondary" id="btnDashApply" type="button">Aplicar filtros</button></div>
+            </div>
+          </div>
+
+          <div class="grid" style="margin-top:14px" id="kpiGrid"></div>
+
+          <div class="grid" style="margin-top:14px">
+            <div class="card col-6">
+              <h3>Consumo mensal (Litros)</h3>
+              <canvas id="chLiters"></canvas>
+              <div class="hint">Dica: use os filtros acima para focar em veículo/condutor/combustível.</div>
+            </div>
+            <div class="card col-6">
+              <h3>Gastos mensais (R$)</h3>
+              <canvas id="chMoney"></canvas>
+            </div>
+            <div class="card col-6">
+              <h3>Gastos por veículo (R$)</h3>
+              <canvas id="chByVehicle"></canvas>
+            </div>
+            <div class="card col-6">
+              <h3>Despesas por categoria (R$)</h3>
+              <canvas id="chExtra
+        <section data-view="report-financial" class="hidden">
+          <div class="title">
+            <h2>Relatório Financeiro (Consolidado)</h2>
+            <span class="badge">Mensal/Anual • Custo por KM</span>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <div class="row" style="justify-content:space-between; align-items:center;">
+              <div class="meta">Consolida combustível + despesas extras e calcula custo por KM no período.</div>
+              <div class="row" style="gap:8px">
+                <button class="btn" id="btnFinPrint">Imprimir</button>
+                <button class="btn" id="btnFinExport">Exportar CSV</button>
+              </div>
+            </div>
+            <div class="form" id="finFilters" style="margin-top:10px">
+              <div class="field"><label>Ano</label><select id="finYear"></select></div>
+              <div class="field"><label>Período</label><select id="finPeriod"></select></div>
+              <div class="field"><label>Veículo</label><select id="finVehicle"></select></div>
+              <div class="field"><label>Condutor</label><select id="finDriver"></select></div>
+              <div class="field"><label>Combustível</label><select id="finFuel"></select></div>
+              <div class="field" style="align-self:end"><button class="btn primary" id="btnFinApply">Aplicar filtros</button></div>
+            </div>
+          </div>
+
+          <div class="grid cards" style="margin-top:14px">
+            <div class="kpi"><div class="kpi-label">Combustível (R$)</div><div class="kpi-value" id="finKpiFuel">—</div></div>
+            <div class="kpi"><div class="kpi-label">Despesas extras (R$)</div><div class="kpi-value" id="finKpiExtras">—</div></div>
+            <div class="kpi"><div class="kpi-label">Custo total (R$)</div><div class="kpi-value" id="finKpiTotal">—</div></div>
+            <div class="kpi"><div class="kpi-label">Custo por KM (R$/km)</div><div class="kpi-value" id="finKpiCostKm">—</div></div>
+
+            <div class="kpi"><div class="kpi-label">KM rodados</div><div class="kpi-value" id="finKpiKm">—</div></div>
+            <div class="kpi"><div class="kpi-label">Litros consumidos</div><div class="kpi-value" id="finKpiLiters">—</div></div>
+            <div class="kpi"><div class="kpi-label">Média km/L</div><div class="kpi-value" id="finKpiKmL">—</div></div>
+            <div class="kpi"><div class="kpi-label">Média R$/Litro</div><div class="kpi-value" id="finKpiRL">—</div></div>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <h3 style="margin:0 0 10px 0">Resumo por período</h3>
+            <div class="table-wrap">
+              <table class="table" id="finTable">
+                <thead>
+                  <tr>
+                    <th>Período</th>
+                    <th>KM</th>
+                    <th>Litros</th>
+                    <th>Combustível (R$)</th>
+                    <th>Extras (R$)</th>
+                    <th>Total (R$)</th>
+                    <th>R$/KM</th>
+                  </tr>
+                </thead>
+                <tbody id="finTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="grid two" style="margin-top:14px">
+            <div class="card">
+              <h3 style="margin:0 0 10px 0">Top 5 veículos por custo</h3>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead>
+                    <tr><th>Veículo</th><th>Total (R$)</th><th>KM</th><th>R$/KM</th></tr>
+                  </thead>
+                  <tbody id="finTopVehicles"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h3 style="margin:0 0 10px 0">Top 5 condutores por custo</h3>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead>
+                    <tr><th>Condutor</th><th>Total (R$)</th><th>KM</th><th>R$/KM</th></tr>
+                  </thead>
+                  <tbody id="finTopDrivers"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="meta" style="margin:10px 0 0 4px">Dica: Custo por KM considera combustível + despesas extras dentro do filtro aplicado.</div>
+        </section>
+s"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="report-general" class="hidden">
+          <div class="title">
+            <h2>Relatório Geral</h2>
+            <span class="badge">Mensal / Anual</span>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="row">
+              <div class="field" style="max-width:220px">
+                <label>Ano</label><select id="rgYear"></select>
+              </div>
+              <button class="btn secondary" id="btnGenExport" type="button">Exportar CSV</button>
+            </div>
+            <div style="overflow:auto; margin-top:10px">
+              <table class="table" id="generalTable"></table>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="report-vehicle" class="hidden">
+          <div class="title">
+            <h2>Relatório por Veículo</h2>
+            <span class="badge">Tabela + gráficos</span>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="row">
+              <div class="field" style="max-width:300px">
+                <label>Veículo</label><select id="rvPlate"></select>
+              </div>
+              <button class="btn secondary" id="btnRVExport" type="button">Exportar CSV</button>
+            </div>
+            <div class="grid" style="margin-top:10px">
+              <div class="card col-12">
+                <h3>Resumo do veículo</h3>
+                <div id="rvSummary" class="notice"></div>
+              </div>
+              <div class="card col-12">
+                <h3>Registros</h3>
+                <div style="overflow:auto"><table class="table" id="rvTable"></table></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="report-driver" class="hidden">
+          <div class="title">
+            <h2>Relatório por Condutor</h2>
+            <span class="badge">Tabela + gráficos</span>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="row">
+              <div class="field" style="max-width:300px">
+                <label>Condutor</label><select id="rdDriver"></select>
+              </div>
+              <button class="btn secondary" id="btnRDExport" type="button">Exportar CSV</button>
+            </div>
+            <div class="grid" style="margin-top:10px">
+              <div class="card col-12">
+                <h3>Resumo do condutor</h3>
+                <div id="rdSummary" class="notice"></div>
+              </div>
+              <div class="card col-12">
+                <h3>Registros</h3>
+                <div style="overflow:auto"><table class="table" id="rdTable"></table></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="report-fuel" class="hidden">
+          <div class="title">
+            <h2>Relatório por Combustível</h2>
+            <span class="badge">Tabela + gráficos</span>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="row">
+              <div class="field" style="max-width:300px">
+                <label>Combustível</label><select id="rfFuelSel"></select>
+              </div>
+              <button class="btn secondary" id="btnRFExport" type="button">Exportar CSV</button>
+            </div>
+            <div class="grid" style="margin-top:10px">
+              <div class="card col-12">
+                <h3>Resumo do combustível</h3>
+                <div id="rfSummary" class="notice"></div>
+              </div>
+              <div class="card col-12">
+                <h3>Registros</h3>
+                <div style="overflow:auto"><table class="table" id="rfTable2"></table></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        
+        <section data-view="report-station" class="hidden">
+          <div class="title">
+            <h2>Relatório por Posto</h2>
+            <span class="badge">Tabela + crédito do posto</span>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="row">
+              <div class="field" style="max-width:320px">
+                <label>Posto</label><select id="rpStationSel"></select>
+              </div>
+              <button class="btn secondary" id="btnRPExport" type="button">Exportar CSV</button>
+            </div>
+
+            <div class="grid" style="margin-top:10px">
+              <div class="card col-12">
+                <h3>Resumo do posto</h3>
+                <div id="rpSummary" class="notice"></div>
+              </div>
+
+              <div class="card col-12">
+                <h3>Movimentação de crédito</h3>
+                <div class="hint">Aportes (+) e abatimentos por abastecimento no crédito (−).</div>
+                <div style="overflow:auto"><table class="table" id="rpCreditTable"></table></div>
+              </div>
+
+              <div class="card col-12">
+                <h3>Abastecimentos no posto</h3>
+                <div style="overflow:auto"><table class="table" id="rpTable2"></table></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+<section data-view="import-export" class="hidden">
+          <div class="title">
+            <h2>Importar / Exportar</h2>
+            <span class="badge">CSV (Excel) + Backup JSON</span>
+          </div>
+
+          <div class="grid" style="margin-top:12px">
+            <div class="card col-6">
+              <h3>Importar CSV (Abastecimentos)</h3>
+              <p class="meta">Importa sem ajustes, aceitando “;” ou “,”, datas BR e moeda brasileira. Cria automaticamente cadastros inexistentes.</p>
+              <input type="file" id="csvFile" accept=".csv,text/csv" />
+              <div class="row" style="margin-top:10px">
+                <button class="btn" id="btnCsvPreview" type="button">Prévia</button>
+                <button class="btn secondary" id="btnCsvImport" type="button">Importar</button>
+              </div>
+              <div id="csvPreview" class="notice hidden" style="margin-top:10px"></div>
+              <div id="csvErrors" class="notice danger hidden" style="margin-top:10px"></div>
+            </div>
+
+            <div class="card col-6">
+              <h3>Exportar</h3>
+              <div class="row" style="margin-top:10px">
+                <button class="btn secondary" id="btnExpRefuels" type="button">Exportar CSV (abastecimentos)</button>
+                <button class="btn secondary" id="btnExpExpenses" type="button">Exportar CSV (despesas)</button>
+                <button class="btn" id="btnBackup" type="button">Exportar JSON (backup)</button>
+              </div>
+
+              <hr />
+
+              <h3>Restaurar backup JSON</h3>
+              <input type="file" id="jsonFile" accept=".json,application/json" />
+              <div class="row" style="margin-top:10px">
+                <button class="btn danger" id="btnRestore" type="button">Importar JSON (restaurar)</button>
+              </div>
+              <div class="notice danger" style="margin-top:10px">
+                Atenção: restaurar substitui todos os dados locais do app.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="registers" class="hidden">
+          <div class="title">
+            <h2>Cadastros</h2>
+            <span class="badge">Veículos, condutores, postos e combustíveis</span>
+          </div>
+
+          <div class="grid" style="margin-top:12px">
+            <div class="card col-6">
+              <h3>Veículos</h3>
+              <form class="row" id="vehForm" autocomplete="off">
+                <input id="vehPlate" placeholder="Placa (ex.: ABC1D23)" style="max-width:220px" />
+                <input id="vehDesc" placeholder="Descrição (opcional)" style="flex:1" />
+                <button class="btn" type="submit">Adicionar</button>
+              </form>
+              <div style="overflow:auto; margin-top:10px"><table class="table" id="vehTable"></table></div>
+            </div>
+
+            <div class="card col-6">
+              <h3>Condutores</h3>
+              <form class="row" id="drvForm" autocomplete="off">
+                <input id="drvName" placeholder="Nome do condutor" style="flex:1" />
+                <button class="btn" type="submit">Adicionar</button>
+              </form>
+              <div style="overflow:auto; margin-top:10px"><table class="table" id="drvTable"></table></div>
+            </div>
+
+            <div class="card col-6">
+              <h3>Postos</h3>
+              <form class="row" id="stForm" autocomplete="off">
+                <input id="stName" placeholder="Nome do posto" style="flex:1" />
+                <button class="btn" type="submit">Adicionar</button>
+              </form>
+              <div class="notice" style="margin-top:10px">
+                <b>Crédito no posto:</b> registre aportes (pré-pago) e o sistema abate automaticamente em cada abastecimento marcado como “Crédito no posto”.
+              </div>
+              <form class="row" id="stCreditForm" autocomplete="off" style="margin-top:10px">
+                <select id="stCreditStation" style="min-width:220px"></select>
+                <input id="stCreditAmount" type="number" step="0.01" min="0" placeholder="Valor do aporte (R$)" style="max-width:220px" />
+                <input id="stCreditObs" placeholder="Observação (opcional)" style="flex:1" />
+                <button class="btn secondary" type="submit">Adicionar crédito</button>
+              </form>
+              <div style="overflow:auto; margin-top:10px"><table class="table" id="stTable"></table></div>
+            </div>
+
+            <div class="card col-6">
+              <h3>Combustíveis</h3>
+              <form class="row" id="fuForm" autocomplete="off">
+                <input id="fuName" placeholder="Ex.: Diesel S10" style="flex:1" />
+                <button class="btn" type="submit">Adicionar</button>
+              </form>
+              <div style="overflow:auto; margin-top:10px"><table class="table" id="fuTable"></table></div>
+            </div>
+          </div>
+
+          <div class="notice" style="margin-top:14px">
+            Dica comercial: cadastros são criados automaticamente na importação CSV, mas você pode pré-cadastrar para padronização.
+          </div>
+        </section>
+
+        <section data-view="license-about" class="hidden">
+          <div class="title">
+            <h2>Licença / Sobre</h2>
+            <span class="badge">Controle comercial offline</span>
+          </div>
+
+          <div class="grid" style="margin-top:12px">
+            <div class="card col-6">
+              <h3>Ativar licença</h3>
+              <p class="meta">
+                A licença é verificada localmente (sem servidor) e limita a quantidade de veículos por plano.
+                Estrutura: <code>EMPRESA|PLANO|LIMITE|HASH</code>
+              </p>
+
+              <div class="form">
+                <div class="field span-12"><label>Chave de licença</label><input id="licKey" placeholder="Ex.: MinhaEmpresa|PRO|30|A1B2C3D4" /></div>
+                <div class="field span-12">
+                  <div class="row">
+                    <button class="btn" id="btnLicApply" type="button">Validar e ativar</button>
+                    <button class="btn secondary" id="btnLicDemo" type="button">Voltar para Demo</button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="licResult" class="notice hidden" style="margin-top:10px"></div>
+            </div>
+
+            <div class="card col-6">
+              <h3>Sobre o sistema</h3>
+              <p class="meta">
+                O FrotaControl é um PWA (app instalável) para gestão de combustível e despesas de frota,
+                pensado para pequenas e médias empresas, agronegócio e transportadores locais.
+              </p>
+              <ul class="meta">
+                <li>✅ Funciona 100% offline (Service Worker + cache)</li>
+                <li>✅ Dados locais (LocalStorage)</li>
+                <li>✅ Importa CSV no padrão do Excel sem ajustes</li>
+                <li>✅ Relatórios + gráficos + impressão</li>
+                <li>✅ Controle comercial por plano (offline)</li>
+              </ul>
+
+              <hr />
+              <h3>Planos</h3>
+              <div class="notice">
+                <b>Básico</b>: até 10 veículos<br/>
+                <b>Profissional</b>: até 30 veículos<br/>
+                <b>Avançado</b>: até 100 veículos
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="footer">© <span id="year"></span> FrotaControl • PWA offline • Sem backend</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- App scripts -->
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/license.js"></script>
+  <script src="assets/js/calc.js"></script>
+  <script src="assets/js/reports.js"></script>
+  <script src="assets/js/charts.js"></script>
+  <script src="assets/js/csv-import.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/pwa.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
